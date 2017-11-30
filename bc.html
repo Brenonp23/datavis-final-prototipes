@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<!--The code is modified from: https://jasonneylon.wordpress.com/2013/09/05/two-sided-horizontal-barchart-using-d3-js/-->
+
+
+<html>
+<head>
+    <script src="js/crossfilter.js" charset="utf-8"></script>
+    <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <script src="js/dc.js" charset="utf-8"></script>
+    <script src="https://d3js.org/queue.v1.min.js"></script>
+
+    <title>Bar Chart</title>
+
+    <style type="text/css">
+        .chart {
+            margin: 10px;
+            padding-top: 10px;
+        }
+
+        .chart .right {
+            stroke: white;
+            fill: indianred;
+        }
+
+        .chart .left {
+            stroke: white;
+            fill: steelblue;
+        }
+
+        .chart rect:hover {
+            fill: #64707d;
+        }
+
+        .chart text {
+            fill: #24da82;
+        }
+
+        .chart text.name {
+            fill: black;
+        }
+
+        .chart text.title {
+            fill: #2216ff;
+        }
+    </style>
+</head>
+<body>
+<h1>Two sided horiztontal bar chart</h1>
+
+<div id="barChart"></div>
+
+<script type="text/javascript">
+var percentsByCountry = d3.map();
+var grossByCountry = d3.map();
+
+var facts;
+var movieDim;
+var all;
+var treated_data;
+
+//Create a quantize color scale here
+// Consider that the unemployment rate goes from 0 to 15% (.15)
+// display the colors in nine different levels of greens (using colorbrewer)
+
+var chart = dc.rowChart("#barChart");
+
+queue()
+    // .defer(d3.tsv, "data/2016_general.csv")
+    
+    .defer(d3.tsv, 'data/2016_foreign.csv') 
+    //   function(d) {
+    //   var ctr = d.Country
+    //   if (!grossByCountry.has(d.Title)){
+    //     grossByCountry.set(d.Title, {ctr: parseFloat(d.Total_Gross)})
+    //   }
+
+    //   else 
+    //     grossByCountry.get(d.Title)[d.Country] = parseFloat(d.Total_Gross)
+   
+    // })
+    .defer(d3.tsv, "data/2016_countries.csv", 
+      function(d) { percentsByCountry.set(d.Name, {chr: parseFloat(d.ChristianPercent),
+                                                   mus: parseFloat(d.MuslimPercent),
+                                                   ath: parseFloat(d.AtheistPercent),
+                                                   hin: parseFloat(d.HinduPercent),
+                                                   bud: parseFloat(d.BuddhistPercent),
+                                                   flk: parseFloat(d.FolkReligionPercent),
+                                                   oth: parseFloat(d.OtherPercent),
+                                                   jew: parseFloat(d.JewishPercent),
+                                                   hdi: parseFloat(d.HDI)
+                                               }
+                                              );})
+    .await(ready);
+
+function ready(error, data) {
+
+    data.forEach(function(d) {
+        var country_info = percentsByCountry.get(d.Country);
+
+        d.hdi = country_info.hdi;
+
+        /*var religions_names = Object.keys(religions);
+        var religions_values = Object.values(religions);
+
+        for(var i=0; i<religions_names.length; i++) {
+            var tuple = Object.assign({}, d);
+
+            tuple.religion = religions_names[i];
+            tuple.religion_value = religions_values[i];
+            tuple.religion_gross = religions_values[i]*d.Total_Gross;
+
+            treated_data.push(tuple);
+            // console.log(tuple)
+        }*/
+    });
+
+    facts = crossfilter(data);
+    all = facts.groupAll();
+
+    movieDim = facts.dimension(function(d) {
+        return d.Title;
+    });
+
+    console.log(movieDim.top(Infinity));
+
+    /*hdiDim = facts.dimension(function(d) {
+        return d.hdi;
+    });
+
+    hdiGroup = hdiDim.group();*/
+
+    var countryDim = facts.dimension(function(d) {
+        return d.Country;
+    })
+
+    var countryMax = countryDim.group().reduceCount().top(1)[0].value;
+    var countryAmt = countryDim.group().reduceCount().top(Infinity).length;
+
+    var countryGroup = countryDim.group().reduceSum(function(d) {
+        return d.hdi;
+    });
+
+    countryGroup.top(Infinity).forEach(function(d) {
+        d.value = (d.value / countryMax).toFixed(2);
+    });
+
+    chart
+        .dimension(countryDim)
+        .group(countryGroup)
+        .data(function(group) {return group.top(Infinity);})
+        .height(countryAmt * 20)
+        .gap(10)
+        .render();
+
+  // var countryDim = facts.dimension(function(d) {
+  //     return d.Country;
+  // })
+
+  // var countryGroup = movieDim.group().reduceSum(function(d) {
+  //   return parseFloat(d.Total_Gross);
+  // });
+
+  // var movieGroup = countryDim.group().reduceSum(function(d) {
+  //   return parseFloat(d.Total_Gross);
+  // });
+
+  // console.log(countryGroup.top(4));
+  // console.log(movieGroup.top(4));
+
+  // moviesRowChart.width(500)
+  //   .height(500)
+  //   .dimension(movieDim)
+  //   .group(countryGroup)
+
+  // countriesRowChart.width(500)
+  //   .height(500)
+  //   .dimension(countryDim)
+  //   .group(movieGroup)
+  //       // .columns([
+  //       //   function(d){return d.Title},
+  //       //   function(d){return d.Total_Gross}
+  //       // ])
+  //       // .sortBy(function(d) {return d.Total_Gross})
+  //       // .order(d3.descending)
+
+  //   // Render the Charts
+  // dc.renderAll();
+
+}
+
+    /*var labelArea = 160;
+    var chart,
+            width = 400,
+            bar_height = 20,
+            height = bar_height * 200;
+    var rightOffset = width + labelArea;
+
+    var lCol = "infant.mortality";
+    var rCol = "gdp";
+    var xFrom = d3.scale.linear()
+            .range([0, width]);
+    var xTo = d3.scale.linear()
+            .range([0, width]);
+    var y = d3.scale.ordinal()
+            .rangeBands([20, height]);
+
+    function render(data) {
+        var chart = d3.select("body")
+                .append('svg')
+                .attr('class', 'chart')
+                .attr('width', labelArea + width + width)
+                .attr('height', height);
+
+        xFrom.domain(d3.extent(data, function (d) {
+            return d[lCol];
+        }));
+        xTo.domain(d3.extent(data, function (d) {
+            return d[rCol];
+        }));
+
+        y.domain(data.map(function (d) {
+            return d.countries;
+        }));
+
+        var yPosByIndex = function (d) {
+            return y(d.countries);
+        };
+        chart.selectAll("rect.left")
+                .data(data)
+                .enter().append("rect")
+                .attr("x", function (d) {
+                    return width - xFrom(d[lCol]);
+                })
+                .attr("y", yPosByIndex)
+                .attr("class", "left")
+                .attr("width", function (d) {
+                    return xFrom(d[lCol]);
+                })
+                .attr("height", y.rangeBand());
+        chart.selectAll("text.leftscore")
+                .data(data)
+                .enter().append("text")
+                .attr("x", function (d) {
+                    return width - xFrom(d[lCol])-40;
+                })
+                .attr("y", function (d) {
+                    return y(d.countries) + y.rangeBand() / 2;
+                })
+                .attr("dx", "20")
+                .attr("dy", ".36em")
+                .attr("text-anchor", "end")
+                .attr('class', 'leftscore')
+                .text(function(d){return d[lCol];});
+        chart.selectAll("text.name")
+                .data(data)
+                .enter().append("text")
+                .attr("x", (labelArea / 2) + width)
+                .attr("y", function (d) {
+                    return y(d.countries) + y.rangeBand() / 2;
+                })
+                .attr("dy", ".20em")
+                .attr("text-anchor", "middle")
+                .attr('class', 'name')
+                .text(function(d){return d.countries;});
+
+        chart.selectAll("rect.right")
+                .data(data)
+                .enter().append("rect")
+                .attr("x", rightOffset)
+                .attr("y", yPosByIndex)
+                .attr("class", "right")
+                .attr("width", function (d) {
+                    return xTo(d[rCol]);
+                })
+                .attr("height", y.rangeBand());
+        chart.selectAll("text.score")
+                .data(data)
+                .enter().append("text")
+                .attr("x", function (d) {
+                    return xTo(d[rCol]) + rightOffset+40;
+                })
+                .attr("y", function (d) {
+                    return y(d.countries) + y.rangeBand() / 2;
+                })
+                .attr("dx", -5)
+                .attr("dy", ".36em")
+                .attr("text-anchor", "end")
+                .attr('class', 'score')
+                .text(function(d){return d[rCol];});
+        chart.append("text").attr("x",width/3).attr("y", 10).attr("class","title").text("Infant Mortality");
+        chart.append("text").attr("x",width/3+rightOffset).attr("y", 10).attr("class","title").text("GDP");
+        chart.append("text").attr("x",width+labelArea/3).attr("y", 10).attr("class","title").text("Countries");
+
+
+    }
+
+    function type(d) {
+        d["gdp"] = +d["gdp"];
+        d["infant.mortality"] = +d["infant.mortality"];
+        return d;
+    }
+
+    d3.csv("https://gist.githubusercontent.com/kaijiezhou/b0a1959aad60346f806a/raw/80b02e59b380ca5f86a841fb6066bc9cd147ff51/UN.csv", type, render);*/
+</script>
+</body>
+</html>

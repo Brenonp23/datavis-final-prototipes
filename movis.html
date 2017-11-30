@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<header>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script type='text/javascript' src="js/crossfilter.js" charset="utf-8"></script>
+    <script type='text/javascript' src="js/dc.js" charset="utf-8"></script>
+  	<script src="https://d3js.org/queue.v1.min.js"></script>
+  	
+    <script type="text/javascript">
+        var percentsByCountry = d3.map();
+        //var grossByCountry = d3.map();
+        
+        var barType;
+        
+        var movies = [];
+        
+        //dimensions
+        var movieDim;
+        var countryDim;
+        
+        //groups
+        var movieGroup;
+        var countryGroup;
+        
+        var treated_data = [];
+        
+        queue()
+          .defer(d3.tsv, "data/2016_foreign.csv") 
+          .defer(d3.tsv, "data/2016_countries.csv", 
+            function(d) { percentsByCountry.set(d.Name, {Christian: parseFloat(d.ChristianPercent),
+                                                         Muslim: parseFloat(d.MuslimPercent),
+                                                         Atheist: parseFloat(d.AtheistPercent),
+                                                         Hindu: parseFloat(d.HinduPercent),
+                                                         Buddhist: parseFloat(d.BuddhistPercent),
+                                                         FolkReligion: parseFloat(d.FolkReligionPercent),
+                                                         Other: parseFloat(d.OtherPercent),
+                                                         Jewish: parseFloat(d.JewishPercent)
+                                                        });
+                        })
+          .await(ready);
+        
+        function ready(error, data) {
+            // console.log(percentsByCountry)
+            var moviesRowChart = dc.rowChart("#dc-movies-graph");
+            var countriesRowChart = dc.rowChart("#dc-countries-graph");
+            
+            data.forEach(function(d) {
+                var religions = percentsByCountry.get(d.Country);
+                
+                var religions_names = Object.keys(religions);
+                var religions_values = Object.values(religions);
+                
+                for(var i=0; i<religions_names.length; i++) {
+                    var tuple = Object.assign({}, d);
+                    
+                    tuple.religion = religions_names[i];
+                    tuple.religion_value = religions_values[i];
+                    tuple.religion_gross = (religions_values[i]*d.Total_Gross/100).toFixed(2);
+                    
+                    treated_data.push(tuple);
+                    // console.log(tuple)
+                }
+            });
+            
+            var facts = crossfilter(treated_data);
+            
+            movieDim = facts.dimension(function(d) {
+                return d.Title;
+            })/*.filter(function(d) {
+                return movies.indexOf(d) != -1;    
+            })*/;
+            
+            // console.log(movieDim.top(Infinity))
+            
+            movieGroup = movieDim.group().reduceCount(function(d) {
+               return d.Title;
+            });
+            
+            movieGroup.top(Infinity).forEach(function(d) {
+               movies.push(d.key); 
+            });
+            
+            countryDim = facts.dimension(function(d) {
+                return d.Country;
+            });
+            
+            countryGroup = countryDim.group().reduceSum(function(d) {
+                return parseFloat(d.Total_Gross);
+            });
+            
+            barType = countryGroup.top(20).map(function(d) {
+            	return d.key
+            });
+            
+            var religionDim = facts.dimension(function(d) {
+                return d.religion;
+            }).filter(function(d) {return d == "Christian"});
+
+            // console.log(countryDim.top(Infinity));
+            
+            // console.log(religionDim.filter(function(d){return d == "FolkReligion"}).top(Infinity));
+            
+            var maxGrossPerReligion = religionDim.group().reduceSum(function(d){
+                return parseFloat(d.Total_Gross);
+            });
+            
+            
+            //console.log(maxGrossPerReligion.top(Infinity));
+            
+            var religion_registries = religionDim.group().reduceCount().top(1)[0].value;
+
+            var religion_gross_sum = movieDim.group()
+            							  .reduceSum(function(d) {
+            							  	return d.religion_gross;
+            							  }).top(Infinity);
+
+           	// console.log(religion_gross_sum);
+            
+             var religionGroup = religionDim.group().reduceSum(function(d) {
+                // if(d.religion == "FolkReligion" && isNaN(d.religion_value)) {
+                //     console.log(d.Country);
+                // }
+                
+                if(isNaN(d.religion_value)) {
+                    d.religion_value = 0;
+                }
+                
+                return d.religion_value;
+            });
+            
+            religionGroup.top(Infinity).forEach(function(d){
+                d.value = (d.value/religion_registries).toFixed(2);
+            });
+            
+            var ac_country = "";
+            var gross_sum = 0;
+            var rel_sum = 0;
+            var first_time = true;
+
+            console.log("oi");
+
+            var movieGrossDim = facts.dimension(function(d) {
+            	console.log(d.Title);
+            	if(ac_country != d.Country) {
+            		if(!first_time) {
+            			var res = {f: gross_sum, s: rel_sum};
+            			gross_sum = 0;
+            			rel_sum = 0;
+            			return [res.f, res.s];
+            		}
+
+            		gross_sum = d.Total_Gross;
+            		rel_sum = d.religion_gross;
+            		ac_country = d.Country;
+            		first_time = false;
+            	}
+            	else {
+            		gross_sum += d.Total_Gross;
+            		rel_sum += d.religion_gross;
+
+            		return [];
+            	}
+            });
+
+            //console.dir(movieGrossDim)
+            
+            var movieGrossGroup = movieGrossDim.group();
+
+            console.log(movieGrossGroup.top(Infinity))
+
+            //console.log(movieDim.top(Infinity));
+            //console.log(religionGroup.top(Infinity));
+            //console.log(religionDim.top(Infinity));
+            
+            //showBarChart(countryDim, countryGroup, barType);
+            //fillList(movies)
+            //showPieChart(religionDim, religionGroup);
+            showScatterplot(movieGrossDim, movieGrossGroup)
+        }
+    </script>
+    
+</header>
+<body>
+
+	<div id="scatter-plot"></div>
+
+<script type="text/javascript">
+    
+    var showScatterplot = function(xDim, yGroup) {
+        var chart = dc.scatterPlot("#scatter-plot");
+        
+        chart
+            .width(768)
+            .height(480)
+            .x(d3.scale.linear().domain([0,600]))
+            .brushOn(false)
+            .symbolSize(8)
+            .clipPadding(10)
+            .yAxisLabel("This is the Y Axis!")
+            .dimension(xDim)
+            .group(yGroup);
+        chart.render();
+    }
+    
+</script>
+
+<div id="movies_list_div">
+    <ul id="movies_ul">
+    </ul>
+</div>
+
+<script type="text/javascript">
+    function fillList(movies) {
+        for (var i=0; i<movies.length; i++) {
+            document.querySelector('#movies_ul').innerHTML += '<li><button>'+ movies[i] + '</button></li>';
+        }
+        
+        var buttons = document.querySelectorAll("#movies_ul>li>button");
+            
+        buttons.forEach(function(d){
+           d.onclick = function() {
+               console.log(d.innerHTML);
+           }
+        });
+    }
+    
+</script>
+
+<div id="pie-chart"></div>
+
+<script type="text/javascript">
+    
+    function showPieChart(religionDim, religionGroup) {
+        var pie_chart = dc.pieChart("#pie-chart");
+        
+        pie_chart
+            .width(360)
+            .height(280)
+            .slicesCap(5)
+            .innerRadius(80)
+            .dimension(religionDim)
+            .group(religionGroup)
+            .colors(d3.scale.ordinal().domain(["Christian", "Muslim", "Atheist", "Buddhist", "Other", "Hindu", "FolkReligion", "Jewish"])
+                                    .range(["#3366ff", "#00ff99", "#ff6699", "#ffcc99", "#9966ff", "#ccff99", "#ff4d4d", "#c2c2a3"]))
+            //.legend(dc.legend())
+            // workaround for #703: not enough data is accessible through .label() to display percentages
+            /*.on('pretransition', function(chart) {
+                chart.selectAll('text.pie-slice').text(function(d) {
+                    return d.data.key + ' ' + dc.utils.printSingleValue((d.endAngle - d.startAngle) / (2*Math.PI) * 100) + '%';
+                })
+            })*/;
+            
+        pie_chart.render();
+    }
+    
+    
+</script>
+
+<div id="bar-container"></div>
+
+<style>
+    #bar-container {
+        background-color: rgba(0,0,0,0);
+    }
+
+    #bar-container .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      stroke-width: 1px;
+    }
+
+    #bar-container .x.axis text {
+        transform: translate(-15px, 50px) rotate(-90deg);
+    }
+    
+</style>
+
+<script type="text/javascript">
+
+    function showBarChart(countryDim, countryGroup, barType) {
+    
+        var bar_chart = dc.barChart("#bar-container");
+        
+        bar_chart 
+            .width(700)
+            .height(600)
+            .margins({
+            top: 10, right: 10, bottom: 100, left: 50
+            })
+            .x(d3.scale.ordinal().domain(barType))
+            .xUnits(dc.units.ordinal)
+            .brushOn(false)
+            .dimension(countryDim)
+            .colors('blue')
+            .group(countryGroup)
+            .yAxisLabel("Total Country Gross",20);
+            
+        bar_chart.render();
+        
+    }
+    
+</script>
+
+</body>
+</html>
