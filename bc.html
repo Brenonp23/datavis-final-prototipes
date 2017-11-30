@@ -17,37 +17,32 @@
             padding-top: 10px;
         }
 
-        .chart .right {
-            stroke: white;
-            fill: indianred;
+        .center {
+            width: 20%;
+            position: absolute;
+            right: 40%;
+            text-align: center;
         }
 
-        .chart .left {
-            stroke: white;
-            fill: steelblue;
+        .right {
+            width: 45%;
+            position: absolute;
+            right: 0;
         }
 
-        .chart rect:hover {
-            fill: #64707d;
-        }
-
-        .chart text {
-            fill: #24da82;
-        }
-
-        .chart text.name {
-            fill: black;
-        }
-
-        .chart text.title {
-            fill: #2216ff;
+        .left {
+            width: 45%;
+            position: absolute;
+            left: 0;
         }
     </style>
 </head>
 <body>
 <h1>Two sided horiztontal bar chart</h1>
 
-<div id="barChart"></div>
+<div id="grossChart" class="chart left"></div>
+
+<div id="hdiChart" class="chart right"></div>
 
 <script type="text/javascript">
 var percentsByCountry = d3.map();
@@ -62,7 +57,8 @@ var treated_data;
 // Consider that the unemployment rate goes from 0 to 15% (.15)
 // display the colors in nine different levels of greens (using colorbrewer)
 
-var chart = dc.rowChart("#barChart");
+var chartHdi = dc.rowChart("#hdiChart");
+var chartGross = dc.rowChart("#grossChart");
 
 queue()
     // .defer(d3.tsv, "data/2016_general.csv")
@@ -133,20 +129,34 @@ function ready(error, data) {
         return d.Country;
     })
 
-    var countryMax = countryDim.group().reduceCount().top(1)[0].value;
+    var countryHdiMax = countryDim.group().reduceCount().top(1)[0].value;
     var countryAmt = countryDim.group().reduceCount().top(Infinity).length;
 
-    var countryGroup = countryDim.group().reduceSum(function(d) {
+    var countryHdiGroup = countryDim.group().reduceSum(function(d) {
         return d.hdi;
     });
 
-    countryGroup.top(Infinity).forEach(function(d) {
-        d.value = (d.value / countryMax).toFixed(2);
+    countryHdiGroup.top(Infinity).forEach(function(d) {
+        d.value = (d.value / countryHdiMax).toFixed(2);
     });
 
-    chart
+    var countryGrossGroup = countryDim.group().reduceSum(function(d) {
+        return d.Total_Gross;
+    });
+
+    //var order = countryGrossGroup.top(Infinity).forEach();
+
+    chartHdi
         .dimension(countryDim)
-        .group(countryGroup)
+        .group(countryHdiGroup)
+        .data(function(group) {return group.top(Infinity);})
+        .height(countryAmt * 20)
+        .gap(10)
+        .render();
+
+    chartGross
+        .dimension(countryDim)
+        .group(countryGrossGroup)
         .data(function(group) {return group.top(Infinity);})
         .height(countryAmt * 20)
         .gap(10)
