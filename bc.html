@@ -34,6 +34,11 @@
             width: 45%;
             position: absolute;
             left: 0;
+            transform: scale(-1,1);
+        }
+
+        .left text {
+            transform: scale(-1,1) translate(-140px, 0);
         }
     </style>
 </head>
@@ -94,20 +99,14 @@ function ready(error, data) {
         var country_info = percentsByCountry.get(d.Country);
 
         d.hdi = country_info.hdi;
-
-        /*var religions_names = Object.keys(religions);
-        var religions_values = Object.values(religions);
-
-        for(var i=0; i<religions_names.length; i++) {
-            var tuple = Object.assign({}, d);
-
-            tuple.religion = religions_names[i];
-            tuple.religion_value = religions_values[i];
-            tuple.religion_gross = religions_values[i]*d.Total_Gross;
-
-            treated_data.push(tuple);
-            // console.log(tuple)
-        }*/
+        d.chr_value = country_info.chr;
+        d.mus_value = country_info.mus;
+        d.ath_value = country_info.ath;
+        d.hin_value = country_info.hin;
+        d.bud_value = country_info.bud;
+        d.flk_value = country_info.flk;
+        d.jew_value = country_info.jew;
+        d.oth_value = country_info.oth;
     });
 
     facts = crossfilter(data);
@@ -125,6 +124,26 @@ function ready(error, data) {
 
     hdiGroup = hdiDim.group();*/
 
+    function reduceAdd(p, v) {
+      ++p.count;
+      p.total += v.total;
+      return p;
+    }
+
+    function reduceRemove(p, v) {
+      --p.count;
+      p.total -= v.total;
+      return p;
+    }
+
+    function reduceInitial() {
+      return {count: 0, total: 0};
+    }
+
+    function orderValue(p) {
+      return p.total;
+    }
+
     var countryDim = facts.dimension(function(d) {
         return d.Country;
     })
@@ -132,34 +151,71 @@ function ready(error, data) {
     var countryHdiMax = countryDim.group().reduceCount().top(1)[0].value;
     var countryAmt = countryDim.group().reduceCount().top(Infinity).length;
 
-    var countryHdiGroup = countryDim.group().reduceSum(function(d) {
+    /*var countryHdiGroup = countryDim.group().reduceSum(function(d) {
         return d.hdi;
+    });*/
+    var countryHdiGroup = countryDim.group().reduce(function(n, d) {
+        n.Country = d.Country;
+        n.hdi += d.hdi;
+        return n;
+    }, function(n, d) {
+        n.Country = d.Country;
+        n.hdi -= d.hdi;
+        return n;
+    }, function(){
+        return {Country: "", hdi: 0};
     });
 
     countryHdiGroup.top(Infinity).forEach(function(d) {
-        d.value = (d.value / countryHdiMax).toFixed(2);
+        d.value.hdi = (d.value.hdi / countryHdiMax).toFixed(2);
     });
 
-    var countryGrossGroup = countryDim.group().reduceSum(function(d) {
+    /*var countryGrossGroup = countryDim.group().reduceSum(function(d) {
         return d.Total_Gross;
+    });*/
+    var countryGrossGroup = countryDim.group().reduce( function(n, d) {
+        n.Country = d.Country;
+        n.Total_Gross += parseFloat(d.Total_Gross);
+        return n;
+    }, function(n, d) {
+        n.Country = d.Country;
+        n.Total_Gross -= parseFloat(d.Total_Gross);
+        return n;
+    }, function(){
+        return {Country: "", Total_Gross: 0};
     });
 
-    //var order = countryGrossGroup.top(Infinity).forEach();
+    /*countryGrossGroup.top(Infinity).forEach(function(d){
+        d.value.toFixed(2);
+    });*/
 
-    chartHdi
-        .dimension(countryDim)
-        .group(countryHdiGroup)
-        .data(function(group) {return group.top(Infinity);})
-        .height(countryAmt * 20)
-        .gap(10)
-        .render();
+    /*countryGrossGroup.top(Infinity).forEach(function(d) {
+        d.Country = d.value.Country;
+        d.Total_Gross = d.value.Total_Gross;
+        delete d.key;
+        delete d.value;
+    });*/
+
+    console.log(countryGrossGroup.top(Infinity));
+    console.log(countryHdiGroup.top(Infinity));
 
     chartGross
         .dimension(countryDim)
         .group(countryGrossGroup)
-        .data(function(group) {return group.top(Infinity);})
+        .data(function(group) {return group.order(function(d) {return d.Country;}).top(Infinity);})
         .height(countryAmt * 20)
         .gap(10)
+        .render();
+
+
+
+    chartHdi
+        .dimension(countryDim)
+        .group(countryHdiGroup)
+        .data(function(group) {return group.order(function(d) {console.log(d); return d.Country;}).top(Infinity);})
+        .height(countryAmt * 20)
+        .gap(10)
+        //.ordering(function(d) {return d.value})
         .render();
 
   // var countryDim = facts.dimension(function(d) {
