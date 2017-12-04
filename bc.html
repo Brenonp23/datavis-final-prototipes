@@ -53,11 +53,11 @@
 
 <!-- <div id="worldMap" class="chart" style="height: 350px; width: 500px"></div> -->
 
-<!-- <div id="grossChart" class="chart left"></div>
+<div id="grossChart" class="chart left"></div>
 
-<div id="hdiChart" class="chart right"></div> -->
+<div id="hdiChart" class="chart right"></div>
 
-<div id="grossReligionChart" class="chart"></div>
+<div id="grossReligionChart" class="chart" style="margin-top: 500px;"></div>
 
 <script type="text/javascript">
 var dataByCountry = d3.map();
@@ -66,7 +66,8 @@ var grossByCountry = d3.map();
 var facts;
 var movieDim;
 var all;
-var treated_data;
+var treated_data = [];
+var religion_amt = 8;
 
 //Create a quantize color scale here
 // Consider that the unemployment rate goes from 0 to 15% (.15)
@@ -104,6 +105,8 @@ function ready(error, data) {
         var country_info = dataByCountry.get(d.Country);
 
         d.hdi = country_info.hdi;
+        d.population = country_info.population;
+
         d.chr_value = country_info.chr;
         d.mus_value = country_info.mus;
         d.ath_value = country_info.ath;
@@ -112,17 +115,61 @@ function ready(error, data) {
         d.flk_value = country_info.flk;
         d.jew_value = country_info.jew;
         d.oth_value = country_info.oth;
-        d.population = country_info.population;
+        
+        d.rel_total = country_info.chr 
+                    + country_info.mus 
+                    + country_info.ath
+                    + country_info.hin
+                    + country_info.bud
+                    + country_info.flk
+                    + country_info.jew
+                    + country_info.oth;
     });
 
     facts = crossfilter(data);
-    all = facts.groupAll();
+
+    //uncomment bellow and comment above for test with religions:
+
+    // data.forEach(function(d) {
+    //     var country_info = dataByCountry.get(d.Country);
+                
+    //     var religions_names = Object.keys(country_info);
+    //     var religions_values = Object.values(country_info);
+
+    //     var index = religions_names.indexOf("hdi");
+
+    //     religions_names.splice(index, 1);
+    //     religions_values.splice(index, 1);
+
+    //     index = religions_names.indexOf("population");
+
+    //     religions_names.splice(index, 1);        
+    //     religions_values.splice(index, 1);
+        
+    //     for(var i=0; i<religions_names.length; i++) {
+    //         var tuple = Object.assign({}, d);
+            
+    //         tuple.religion = religions_names[i];
+    //         tuple.religion_value = religions_values[i];
+    //         tuple.hdi = country_info.hdi;
+    //         tuple.population = country_info.population;
+    //         //tuple.religion_gross = religions_values[i] * d.Total_Gross;
+            
+    //         treated_data.push(tuple);
+    //     }
+    // });
+
+    // facts = crossfilter(treated_data);
+
+    //all = facts.groupAll();
 
     //---------- Dimensions ---------------------------------
 
     var movieDim = facts.dimension(function(d) {
         return d.Title;
     });
+
+    console.log(movieDim.top(Infinity));
 
     var countryDim = facts.dimension(function(d) {
         return d.Country;
@@ -133,7 +180,8 @@ function ready(error, data) {
     // Rowchart: 
 
     var countryHdiMax = countryDim.group().reduceCount().top(1)[0].value;
-    var countryAmt = countryDim.group().reduceCount().top(Infinity).length;
+    var totalCountryAmt = countryDim.group().reduceCount().top(Infinity).length;
+    var countryAmt;
 
     var countryHdiGrossGroup = countryDim.group().reduce(function(n, d) {
         n.Total_Gross += parseFloat(d.Total_Gross);
@@ -149,12 +197,18 @@ function ready(error, data) {
 
     countryHdiGrossGroup.top(Infinity).forEach(function(d) {
         d.value.hdi = parseFloat((d.value.hdi / countryHdiMax).toFixed(2));
+        //uncomment bellow for test with religions:
+        //d.value.Total_Gross = parseFloat((d.value.Total_Gross / religion_amt).toFixed(2));
     });
 
     chartGross
         .dimension(countryDim)
         .group(countryHdiGrossGroup)
-        .data(function(group) {return group.order(function(d) {return d.Total_Gross;}).top(Infinity);})
+        .data(function(group) {
+            var top_10 = group.order(function(d) {return d.Total_Gross;}).top(10);
+            countryAmt = top_10.length;
+            return top_10;
+        })
         .valueAccessor(function(d) {return d.value.Total_Gross})
         .height(countryAmt * 20)
         .gap(10);
@@ -162,7 +216,7 @@ function ready(error, data) {
     chartHdi
         .dimension(countryDim)
         .group(countryHdiGrossGroup)
-        .data(function(group) {return group.order(function(d) {return d.Total_Gross;}).top(Infinity);})
+        .data(function(group) {return group.order(function(d) {return d.Total_Gross;}).top(10);})
         .valueAccessor(function(d) {return d.value.hdi})
         .height(countryAmt * 20)
         .gap(10);
@@ -196,48 +250,45 @@ function ready(error, data) {
 
     // Scatterplot:
 
-    /*var movieGrossReligionGroup = movieDim.group().reduce(function(n, d) {
-        n.Total_Gross += parseFloat(d.Total_Gross);
-        n.Christian_Gross += parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
-        return n;
-    }, function(n, d) {
-        n.Total_Gross -= parseFloat(d.Total_Gross);
-        n.Christian_Gross -= parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
-        return n;
-    }, function(){
-        return {Total_Gross: 0, Christian_Gross: 0};
-    });*/
-
-    var last_title = "";
-
-    var movieDimScatter = facts.dimension(function(d) {
-        return [parseFloat(d.Total_Gross), parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100];
-    });
-
     var movieGrossReligionGroup = movieDim.group().reduce(function(n, d) {
         if(n.coords.length == 2) {
             n.coords[0] += parseFloat(d.Total_Gross);
             n.coords[1] += parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
+
+            //uncomment bellow and comment above for test with religions:
+            //n.coords[1] += parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
         } else {
             n.coords.push(parseFloat(d.Total_Gross));
             n.coords.push(parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100);
+
+            //uncomment bellow and comment above for test with religions:
+            //n.coords.push(parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100);
         }
         return n;
     }, function(n, d) {
         if(n.coords.length == 2) {
             n.coords[0] -= parseFloat(d.Total_Gross);
-            n.coords[1] -= parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
+            //n.coords[1] -= parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
+            n.coords[1] -= parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
         } else {
             n.coords.remove(parseFloat(d.Total_Gross));
-            n.coords.remove(parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100);
+            //n.coords.remove(parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100);
+            n.coords.remove(parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100);
         }
         return n;
     }, function(){
         return {coords: []};
     });
 
+    console.log(totalCountryAmt);
+
     movieGrossReligionGroup.top(Infinity).forEach(function(d) {
         var coords = d.value.coords;
+
+        //uncomment bellow for test with religions:
+        // coords[0] = parseFloat(coords[0]/religion_amt).toFixed(2);
+        // coords[1] = parseFloat(coords[1]/religion_amt).toFixed(2);
+
         d.value = d.key;
         d.key = coords;
     });
@@ -259,8 +310,8 @@ function ready(error, data) {
         .dimension(movieDim)
         .group(movieGrossReligionGroup)
         //.data(function(group) {return group.order(function(d) {return d.Total_Gross;}).top(Infinity);})
-        //.keyAccessor(function(d) {return d.key;})
-        //.valueAccessor(function(d) {return d.value.Christian_Gross;})
+        //.keyAccessor(function(d) {return d.value.coords;})
+        //.valueAccessor(function(d) {return d.key;})
 
     dc.renderAll();
 }
