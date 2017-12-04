@@ -9,6 +9,14 @@
     <script src="js/dc.js" charset="utf-8"></script>
     <script src="https://d3js.org/queue.v1.min.js"></script>
 
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"
+   integrity="sha512-M2wvCLH6DSRazYeZRIm1JnYyh22purTM+FDB5CsyxtQJYeKq83arPe5wgbNmcFXGqiSH2XR8dT/fJISVA1r/zQ=="
+   crossorigin=""/>
+   <!-- Make sure you put this AFTER Leaflet's CSS -->
+    <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"
+    integrity="sha512-lInM/apFSqyy1o6s89K4iQUKg6ppXEgsVxT35HbzUupEVRh2Eu9Wdl4tHj7dZO0s1uvplcYGmt3498TtHq+log=="
+    crossorigin=""></script>
+
     <title>Bar Chart</title>
 
     <style type="text/css">
@@ -43,12 +51,16 @@
 <body>
 <h1>Two sided horiztontal bar chart</h1>
 
-<div id="grossChart" class="chart left"></div>
+<div id="worldMap" class="chart" style="height: 350px; width: 500px"></div>
 
-<div id="hdiChart" class="chart right"></div>
+<!-- <div id="grossChart" class="chart left"></div>
+
+<div id="hdiChart" class="chart right"></div> -->
+
+<div id="grossReligionChart" class="chart"></div>
 
 <script type="text/javascript">
-var percentsByCountry = d3.map();
+var dataByCountry = d3.map();
 var grossByCountry = d3.map();
 
 var facts;
@@ -63,22 +75,16 @@ var treated_data;
 var chartHdi = dc.rowChart("#hdiChart");
 var chartGross = dc.rowChart("#grossChart");
 
+//var worldMap = dc.geoChoroplethChart('#wordMap');
+
+//var chartGrossReligion = dc.scatterPlot("#grossReligionChart");
+
 queue()
     // .defer(d3.tsv, "data/2016_general.csv")
     
     .defer(d3.tsv, 'data/2016_foreign.csv') 
-    //   function(d) {
-    //   var ctr = d.Country
-    //   if (!grossByCountry.has(d.Title)){
-    //     grossByCountry.set(d.Title, {ctr: parseFloat(d.Total_Gross)})
-    //   }
-
-    //   else 
-    //     grossByCountry.get(d.Title)[d.Country] = parseFloat(d.Total_Gross)
-   
-    // })
     .defer(d3.tsv, "data/2016_countries.csv", 
-      function(d) { percentsByCountry.set(d.Name, {chr: parseFloat(d.ChristianPercent),
+      function(d) { dataByCountry.set(d.Name, {chr: parseFloat(d.ChristianPercent),
                                                    mus: parseFloat(d.MuslimPercent),
                                                    ath: parseFloat(d.AtheistPercent),
                                                    hin: parseFloat(d.HinduPercent),
@@ -86,7 +92,8 @@ queue()
                                                    flk: parseFloat(d.FolkReligionPercent),
                                                    oth: parseFloat(d.OtherPercent),
                                                    jew: parseFloat(d.JewishPercent),
-                                                   hdi: parseFloat(d.HDI)
+                                                   hdi: parseFloat(d.HDI),
+                                                   population: +d.Population
                                                }
                                               );})
     .await(ready);
@@ -94,7 +101,7 @@ queue()
 function ready(error, data) {
 
     data.forEach(function(d) {
-        var country_info = percentsByCountry.get(d.Country);
+        var country_info = dataByCountry.get(d.Country);
 
         d.hdi = country_info.hdi;
         d.chr_value = country_info.chr;
@@ -105,6 +112,7 @@ function ready(error, data) {
         d.flk_value = country_info.flk;
         d.jew_value = country_info.jew;
         d.oth_value = country_info.oth;
+        d.population = country_info.population;
     });
 
     facts = crossfilter(data);
@@ -112,7 +120,7 @@ function ready(error, data) {
 
     //---------- Dimensions ---------------------------------
 
-    movieDim = facts.dimension(function(d) {
+    var movieDim = facts.dimension(function(d) {
         return d.Title;
     });
 
@@ -160,8 +168,83 @@ function ready(error, data) {
         .gap(10);
 
 
+    // World Map:
+
+    var map = L.map('worldMap');
+
+    map.setView([40, 10],1);
+    mapLink = '<a href="http://openstreetmap.org">OpenStreetMap</a>';
+    L.tileLayer(
+        'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; ' + mapLink + ' Contributors',
+            maxZoom: 15,
+        }).addTo(map);
+
+    //HeatMap
+    /*var geoData = [];
+    _.each(allDim.top(Infinity), function (d) {
+        geoData.push([d["latitude"], d["longitude"], 1]);
+    });
+    var heat = L.heatLayer(geoData,{
+        radius: 10,
+        blur: 20, 
+        maxZoom: 1,
+    }).addTo(map);*/
+
     // Piechart:
 
+
+    // Scatterplot:
+
+    /*var movieGrossReligionGroup = movieDim.group().reduce(function(n, d) {
+        n.Total_Gross += parseFloat(d.Total_Gross);
+        n.Christian_Gross += parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
+        return n;
+    }, function(n, d) {
+        n.Total_Gross -= parseFloat(d.Total_Gross);
+        n.Christian_Gross -= parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
+        return n;
+    }, function(){
+        return {Total_Gross: 0, Christian_Gross: 0};
+    });*/
+
+    /*var last_title = "";
+
+    var movieDimScatter = facts.dimension(function(d) {
+        return [parseFloat(d.Total_Gross), parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100, d.Title];
+    });
+
+    var movieGrossReligionGroup = movieDimScatter.group().reduce(function(n, d) {
+        n.key[2] = d[2];
+        n.key[0] += d[0];
+        n.key[1] += d[1];
+        n.value += 1;
+        return n;
+    }, function(n, d) {
+        n.key[2] = d[2];
+        n.key[0] -= d[0];
+        n.key[1] -= d[1];
+        n.value -= 1;
+        return n;
+    }, function(){
+        return {key: [], value: 0};
+    });
+
+    console.log(movieGrossReligionGroup.top(Infinity));
+
+    chartGrossReligion
+        .width(768)
+        .height(480)
+        .x(d3.scale.linear().domain([0.0,2000.0]))
+        //.brushOn(false)
+        //.symbolSize(8)
+        //.clipPadding(10)
+        //.yAxisLabel("This is the Y Axis!")
+        .dimension(movieDimScatter)
+        .group(movieGrossReligionGroup)
+        //.data(function(group) {return group.order(function(d) {return d.Total_Gross;}).top(Infinity);})
+        //.keyAccessor(function(d) {return d.key;})
+        //.valueAccessor(function(d) {return d.value.Christian_Gross;})*/
 
     dc.renderAll();
 }
