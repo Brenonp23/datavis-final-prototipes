@@ -64,7 +64,11 @@ var dataByCountry = d3.map();
 var grossByCountry = d3.map();
 
 var facts;
+
 var movieDim;
+var countryDim;
+var religionDim;
+
 var all;
 var treated_data = [];
 var religion_amt = 8;
@@ -101,78 +105,81 @@ queue()
 
 function ready(error, data) {
 
-    data.forEach(function(d) {
-        var country_info = dataByCountry.get(d.Country);
+    // data.forEach(function(d) {
+    //     var country_info = dataByCountry.get(d.Country);
 
-        d.hdi = country_info.hdi;
-        d.population = country_info.population;
+    //     d.hdi = country_info.hdi;
+    //     d.population = country_info.population;
 
-        d.chr_value = country_info.chr;
-        d.mus_value = country_info.mus;
-        d.ath_value = country_info.ath;
-        d.hin_value = country_info.hin;
-        d.bud_value = country_info.bud;
-        d.flk_value = country_info.flk;
-        d.jew_value = country_info.jew;
-        d.oth_value = country_info.oth;
+    //     d.chr_value = country_info.chr;
+    //     d.mus_value = country_info.mus;
+    //     d.ath_value = country_info.ath;
+    //     d.hin_value = country_info.hin;
+    //     d.bud_value = country_info.bud;
+    //     d.flk_value = country_info.flk;
+    //     d.jew_value = country_info.jew;
+    //     d.oth_value = country_info.oth;
         
-        d.rel_total = country_info.chr 
-                    + country_info.mus 
-                    + country_info.ath
-                    + country_info.hin
-                    + country_info.bud
-                    + country_info.flk
-                    + country_info.jew
-                    + country_info.oth;
-    });
+    //     d.rel_total = country_info.chr 
+    //                 + country_info.mus 
+    //                 + country_info.ath
+    //                 + country_info.hin
+    //                 + country_info.bud
+    //                 + country_info.flk
+    //                 + country_info.jew
+    //                 + country_info.oth;
+    // });
 
-    facts = crossfilter(data);
+    // facts = crossfilter(data);
 
     //uncomment bellow and comment above for test with religions:
 
-    // data.forEach(function(d) {
-    //     var country_info = dataByCountry.get(d.Country);
+    data.forEach(function(d) {
+        var country_info = dataByCountry.get(d.Country);
                 
-    //     var religions_names = Object.keys(country_info);
-    //     var religions_values = Object.values(country_info);
+        var religions_names = Object.keys(country_info);
+        var religions_values = Object.values(country_info);
 
-    //     var index = religions_names.indexOf("hdi");
+        var index = religions_names.indexOf("hdi");
 
-    //     religions_names.splice(index, 1);
-    //     religions_values.splice(index, 1);
+        religions_names.splice(index, 1);
+        religions_values.splice(index, 1);
 
-    //     index = religions_names.indexOf("population");
+        index = religions_names.indexOf("population");
 
-    //     religions_names.splice(index, 1);        
-    //     religions_values.splice(index, 1);
+        religions_names.splice(index, 1);        
+        religions_values.splice(index, 1);
         
-    //     for(var i=0; i<religions_names.length; i++) {
-    //         var tuple = Object.assign({}, d);
+        for(var i=0; i<religions_names.length; i++) {
+            var tuple = Object.assign({}, d);
             
-    //         tuple.religion = religions_names[i];
-    //         tuple.religion_value = religions_values[i];
-    //         tuple.hdi = country_info.hdi;
-    //         tuple.population = country_info.population;
-    //         //tuple.religion_gross = religions_values[i] * d.Total_Gross;
+            tuple.religion = religions_names[i];
+            tuple.religion_value = religions_values[i];
+            tuple.hdi = country_info.hdi;
+            tuple.population = country_info.population;
             
-    //         treated_data.push(tuple);
-    //     }
-    // });
+            treated_data.push(tuple);
+        }
+    });
 
-    // facts = crossfilter(treated_data);
+    facts = crossfilter(treated_data);
 
     //all = facts.groupAll();
 
     //---------- Dimensions ---------------------------------
 
-    var movieDim = facts.dimension(function(d) {
+    movieDim = facts.dimension(function(d) {
         return d.Title;
     });
 
     console.log(movieDim.top(Infinity));
 
-    var countryDim = facts.dimension(function(d) {
+    countryDim = facts.dimension(function(d) {
         return d.Country;
+    })
+
+    religionDim = facts.dimension(function(d) {
+        return d.religion;
     })
 
     //--------- Groups and Charts --------------------------------------
@@ -198,7 +205,7 @@ function ready(error, data) {
     countryHdiGrossGroup.top(Infinity).forEach(function(d) {
         d.value.hdi = parseFloat((d.value.hdi / countryHdiMax).toFixed(2));
         //uncomment bellow for test with religions:
-        //d.value.Total_Gross = parseFloat((d.value.Total_Gross / religion_amt).toFixed(2));
+        d.value.Total_Gross = parseFloat((d.value.Total_Gross / religion_amt).toFixed(2));
     });
 
     chartGross
@@ -253,26 +260,32 @@ function ready(error, data) {
     var movieGrossReligionGroup = movieDim.group().reduce(function(n, d) {
         if(n.coords.length == 2) {
             n.coords[0] += parseFloat(d.Total_Gross);
-            n.coords[1] += parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
+            // n.coords[1] += parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
+            // n.coords[1] += parseFloat(d.rel_total) * parseFloat(d.Total_Gross) / 100;
 
             //uncomment bellow and comment above for test with religions:
-            //n.coords[1] += parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
+            n.coords[1] += parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
         } else {
             n.coords.push(parseFloat(d.Total_Gross));
-            n.coords.push(parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100);
+            // n.coords.push(parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100);
+            // n.coords.push(parseFloat(d.rel_total) * parseFloat(d.Total_Gross) / 100);
 
             //uncomment bellow and comment above for test with religions:
-            //n.coords.push(parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100);
+            n.coords.push(parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100);
         }
         return n;
     }, function(n, d) {
         if(n.coords.length == 2) {
             n.coords[0] -= parseFloat(d.Total_Gross);
             //n.coords[1] -= parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
+            // n.coords[1] -= parseFloat(d.rel_total) * parseFloat(d.Total_Gross) / 100;
+            //uncomment bellow and comment above for test with religions:
             n.coords[1] -= parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
         } else {
             n.coords.remove(parseFloat(d.Total_Gross));
             //n.coords.remove(parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100);
+            // n.coords.remove(parseFloat(d.rel_total) * parseFloat(d.Total_Gross) / 100);
+            //uncomment bellow and comment above for test with religions:
             n.coords.remove(parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100);
         }
         return n;
@@ -286,8 +299,8 @@ function ready(error, data) {
         var coords = d.value.coords;
 
         //uncomment bellow for test with religions:
-        // coords[0] = parseFloat(coords[0]/religion_amt).toFixed(2);
-        // coords[1] = parseFloat(coords[1]/religion_amt).toFixed(2);
+        coords[0] = parseFloat(coords[0]/religion_amt).toFixed(2);
+        coords[1] = parseFloat(coords[1]).toFixed(2);
 
         d.value = d.key;
         d.key = coords;
@@ -302,7 +315,8 @@ function ready(error, data) {
     chartGrossReligion
         .width(768)
         .height(480)
-        .x(d3.scale.linear().domain([0.0,1100.0]))
+        .x(d3.scale.linear().domain([0.0,1200.0]))
+        .y(d3.scale.linear().domain([0.0,1200.0]))
         .brushOn(false)
         //.symbolSize(8)
         //.clipPadding(10)
