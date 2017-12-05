@@ -54,11 +54,14 @@
 
 <div id="worldMap" class="chart" style="height: 350px; width: 500px"></div>
 
+<div id="grossReligionChart" class="chart"></div>
+<button id="butt">aplica filtro</button>
+
+<div id="religionsChart" class="chart"></div>
+
 <div id="grossChart" class="chart left"></div>
 
 <div id="hdiChart" class="chart right"></div>
-
-<div id="grossReligionChart" class="chart" style="margin-top: 500px;"></div>
 
 <script type="text/javascript">
 var dataByCountry = d3.map();
@@ -81,6 +84,8 @@ var max_entries;
 
 var chartHdi = dc.rowChart("#hdiChart");
 var chartGross = dc.rowChart("#grossChart");
+
+var religionsChart = dc.pieChart("#religionsChart");
 
 //var worldMap = dc.geoChoroplethChart('#wordMap');
 
@@ -108,36 +113,6 @@ queue()
     .await(ready);
 
 function ready(error, data) {
-
-    // data.forEach(function(d) {
-    //     var country_info = dataByCountry.get(d.Country);
-
-    //     d.hdi = country_info.hdi;
-    //     d.population = country_info.population;
-
-    //     d.chr_value = country_info.chr;
-    //     d.mus_value = country_info.mus;
-    //     d.ath_value = country_info.ath;
-    //     d.hin_value = country_info.hin;
-    //     d.bud_value = country_info.bud;
-    //     d.flk_value = country_info.flk;
-    //     d.jew_value = country_info.jew;
-    //     d.oth_value = country_info.oth;
-        
-    //     d.rel_total = country_info.chr 
-    //                 + country_info.mus 
-    //                 + country_info.ath
-    //                 + country_info.hin
-    //                 + country_info.bud
-    //                 + country_info.flk
-    //                 + country_info.jew
-    //                 + country_info.oth;
-    // });
-
-    // facts = crossfilter(data);
-
-    //uncomment bellow and comment above for test with religions:
-
     data.forEach(function(d) {
         var country_info = dataByCountry.get(d.Country);
                 
@@ -263,21 +238,19 @@ function ready(error, data) {
     // Scatterplot:
 
     movieGrossReligionGroup = movieDim.group().reduce(function(n, d) {
-        if(n.coords.length == 2) {
-            n.coords[0] += parseFloat(d.Total_Gross);
-            // n.coords[1] += parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
-            // n.coords[1] += parseFloat(d.rel_total) * parseFloat(d.Total_Gross) / 100;
-
-            //uncomment bellow and comment above for test with religions:
-            n.coords[1] += parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
+        if(n.coords == undefined) {
+            n.coords = [0, 0];
         } else {
-            n.coords.push(parseFloat(d.Total_Gross));
-            // n.coords.push(parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100);
-            // n.coords.push(parseFloat(d.rel_total) * parseFloat(d.Total_Gross) / 100);
 
-            //uncomment bellow and comment above for test with religions:
-            n.coords.push(parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100);
+        //     if(n.coords.length == 2) {
+                n.coords[0] += parseFloat(d.Total_Gross);
+                n.coords[1] += parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
+        //     } else {
+        //         n.coords.push(parseFloat(d.Total_Gross));
+        //         n.coords.push(parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100);
+        //     }
         }
+
         return n;
     }, function(n, d) {
         if(n.coords == undefined) {
@@ -289,7 +262,7 @@ function ready(error, data) {
 
         return n;
     }, function(){
-        return {coords: []};
+        return {coords: [0,0]};
     });
 
     // console.log(movieGrossReligionGroup.top(Infinity));
@@ -299,18 +272,12 @@ function ready(error, data) {
     movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
         var coords = d.value.coords;
 
-        //uncomment bellow for test with religions:
         coords[0] = parseFloat(coords[0] / religion_amt).toFixed(2);
         coords[1] = parseFloat(coords[1]).toFixed(2);
 
         d.value = d.key;
         d.key = coords;
-        //d.max_total_gross = coords[0];
         d.max_religion_gross = coords[1];
-
-        /*if(i === group.length - 1) {
-            console.log(movieDim.top(Infinity).length);
-        }*/
     });
 
     chartGrossReligion
@@ -325,12 +292,26 @@ function ready(error, data) {
         .dimension(movieDim)
         .group(movieGrossReligionGroup);
 
-    dc.renderAll();
-}
+    var religionGroup = religionDim.group().reduceSum(function(d) {        
+        return d.religion_value;
+    });
+    
+    religionGroup.top(Infinity).forEach(function(d){
+        d.value = (d.value / (max_entries / religion_amt)).toFixed(2);
+    });
 
-$(document).ready(function() {
-    $("#butt").click(function() {
-        function f1(callback) {
+    religionsChart
+        .width(360)
+            .height(280)
+            .slicesCap(5)
+            .innerRadius(80)
+            .dimension(religionDim)
+            .group(religionGroup)
+            .colors(d3.scale.ordinal().domain(["chr", "mus", "ath", "bud", "oth", "hin", "flk", "jew"])
+                                    .range(["#3366ff", "#00ff99", "#ff6699", "#ffcc99", "#9966ff", "#ccff99", "#ff4d4d", "#c2c2a3"]));
+
+    religionsChart.filterHandler(function(dimension, filter_array){
+        function pre_filter(callback) {
             movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
                 var coords = d.key;
 
@@ -338,13 +319,16 @@ $(document).ready(function() {
                 d.value = coords;
 
                 if(i === group.length - 1) {
-                    religionDim.filter(function(d) { return d == 'chr'; });
+                    dimension.filter(function(f) { 
+                        return f == filter_array[filter_array.length - 1];
+                    });
+
                     callback();
                 }
             });
         }
 
-        f1(function() {
+        pre_filter(function() {
             movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
                 var coords = d.value.coords;
 
@@ -355,6 +339,71 @@ $(document).ready(function() {
                 d.key = coords;
 
                 if(i === group.length - 1) {
+                   return filter_array; 
+                }
+            });
+        });        
+    });
+
+    dc.renderAll();
+}
+
+//-------------------- ready ends here -----------------------------------------
+var click = false;
+
+$(document).ready(function() {
+    $("#butt").click(function() {
+
+        var filtered_amt;
+
+        function f1(callback) {
+            movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
+                var coords = d.key;
+
+                d.key = d.value;
+                d.value = coords;
+
+                if(i === group.length - 1) {
+                    if(!click) {
+                        console.log("oi");
+                        religionDim.filter(function(d) {return d=='chr'});
+                        filtered_amt = all.value();
+                    } else {
+                        console.log("ola");
+                        religionDim.filter(function(d) {return true});
+                        filtered_amt = all.value(); 
+                        // facts.remove();
+                        // facts.add(countryDim);
+                        // facts.add(movieDim);
+                        // facts.add(religionDim);
+                    }
+
+                    click=!click;
+
+                    callback();
+                }
+            });
+        }
+
+        f1(function() {
+            movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
+                var coords = d.value.coords;
+
+                coords[0] = parseFloat(coords[0] / (religion_amt * (1 - filtered_amt / max_entries))).toFixed(2);
+                coords[1] = (parseFloat(coords[1]) + parseFloat(d.max_religion_gross)).toFixed(2);
+
+                if(d.filtered_coords != undefined) {
+                    coords[0] = parseFloat(coords[0]) + parseFloat(d.filtered_coords[0]);
+                    coords[1] = parseFloat(coords[1]) + parseFloat(d.filtered_coords[1]);
+                }
+
+                d.filtered_coords = coords;
+
+                d.value = d.key;
+                d.key = coords;
+
+                if(i === group.length - 1) {
+                    console.log((1 - filtered_amt / max_entries))
                     console.log(max_entries);
                     console.log(all.value());
                     console.log(movieGrossReligionGroup.top(Infinity));
@@ -366,7 +415,5 @@ $(document).ready(function() {
 })
 
 </script>
-
-<button id="butt">aplica filtro</button>
 </body>
 </html>
