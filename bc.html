@@ -73,6 +73,7 @@ var religionDim;
 var all;
 var treated_data = [];
 var religion_amt = 8;
+var max_entries;
 
 //Create a quantize color scale here
 // Consider that the unemployment rate goes from 0 to 15% (.15)
@@ -167,7 +168,8 @@ function ready(error, data) {
 
     facts = crossfilter(treated_data);
 
-    //all = facts.groupAll();
+    all = facts.groupAll();
+    max_entries = all.value();
 
     //---------- Dimensions ---------------------------------
 
@@ -279,10 +281,10 @@ function ready(error, data) {
         return n;
     }, function(n, d) {
         if(n.coords == undefined) {
-            n.coords = [0,0];
+            n.coords = [0, 0];
         } else {
             n.coords[0] += parseFloat(d.Total_Gross);
-            n.coords[1] += parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
+            n.coords[1] -= parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
         }
 
         return n;
@@ -298,37 +300,18 @@ function ready(error, data) {
         var coords = d.value.coords;
 
         //uncomment bellow for test with religions:
-        coords[0] = parseFloat(coords[0]/religion_amt).toFixed(2);
+        coords[0] = parseFloat(coords[0] / religion_amt).toFixed(2);
         coords[1] = parseFloat(coords[1]).toFixed(2);
 
         d.value = d.key;
         d.key = coords;
+        //d.max_total_gross = coords[0];
+        d.max_religion_gross = coords[1];
 
-        // if(i === group.length - 1) {
-        //     console.log(movieGrossReligionGroup.top(Infinity));
-        // }
+        /*if(i === group.length - 1) {
+            console.log(movieDim.top(Infinity).length);
+        }*/
     });
-
-    // // movieGrossReligionGroup.order(function(d) {return d.Title}).top(Infinity).forEach(function(d) {
-        
-    // //});
-
-    // function toScatter(g, callback) {
-    //     g.top(Infinity).forEach(function(d, i, group) {
-    //         var coords = d.value.coords;
-
-    //         //uncomment bellow for test with religions:
-    //         coords[0] = parseFloat(coords[0]/religion_amt).toFixed(2);
-    //         coords[1] = parseFloat(coords[1]).toFixed(2);
-
-    //         d.value = d.key;
-    //         d.key = coords;
-
-    //         if(i == group.length - 1) {
-    //             callback();
-    //         }
-    //     });
-    // }
 
     chartGrossReligion
         .width(768)
@@ -347,8 +330,6 @@ function ready(error, data) {
 
 $(document).ready(function() {
     $("#butt").click(function() {
-        //console.log(movieGrossReligionGroup.top(Infinity));
-
         function f1(callback) {
             movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
                 var coords = d.key;
@@ -357,7 +338,7 @@ $(document).ready(function() {
                 d.value = coords;
 
                 if(i === group.length - 1) {
-                    religionDim.filter(function(d) { return d != 'chr' });
+                    religionDim.filter(function(d) { return d == 'chr'; });
                     callback();
                 }
             });
@@ -367,29 +348,22 @@ $(document).ready(function() {
             movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
                 var coords = d.value.coords;
 
-                //uncomment bellow for test with religions:
-                //coords[0] = parseFloat(coords[0]/religion_amt).toFixed(2);
-                coords[0] = parseFloat(coords[0]).toFixed(2);
-                coords[1] = parseFloat(coords[1]).toFixed(2);
+                coords[0] = parseFloat(coords[0] / (religion_amt * (1 - all.value() / max_entries))).toFixed(2);
+                coords[1] = (parseFloat(coords[1]) + parseFloat(d.max_religion_gross)).toFixed(2);
 
                 d.value = d.key;
                 d.key = coords;
 
                 if(i === group.length - 1) {
+                    console.log(max_entries);
+                    console.log(all.value());
+                    console.log(movieGrossReligionGroup.top(Infinity));
                     dc.redrawAll();
                 }
             });
-        });
-
-        //console.log(movieGrossReligionGroup.top(Infinity));
-
-        //religionDim.filter(function(d) { return d == 'chr' });
-        //console.log(movieGrossReligionGroup.top(Infinity));
-        // dc.redrawAll()
-        
+        });        
     })
 })
-// religionDim.filter(function(d) { return d == 'chr' }); dc.redrawAll()
 
 </script>
 
