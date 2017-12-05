@@ -8,6 +8,7 @@
     <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
     <script src="js/dc.js" charset="utf-8"></script>
     <script src="https://d3js.org/queue.v1.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"
    integrity="sha512-M2wvCLH6DSRazYeZRIm1JnYyh22purTM+FDB5CsyxtQJYeKq83arPe5wgbNmcFXGqiSH2XR8dT/fJISVA1r/zQ=="
@@ -51,7 +52,7 @@
 <body>
 <h1>Two sided horiztontal bar chart</h1>
 
-<!-- <div id="worldMap" class="chart" style="height: 350px; width: 500px"></div> -->
+<div id="worldMap" class="chart" style="height: 350px; width: 500px"></div>
 
 <div id="grossChart" class="chart left"></div>
 
@@ -83,6 +84,8 @@ var chartGross = dc.rowChart("#grossChart");
 //var worldMap = dc.geoChoroplethChart('#wordMap');
 
 var chartGrossReligion = dc.scatterPlot("#grossReligionChart");
+
+var movieGrossReligionGroup;
 
 queue()
     // .defer(d3.tsv, "data/2016_general.csv")
@@ -172,8 +175,6 @@ function ready(error, data) {
         return d.Title;
     });
 
-    console.log(movieDim.top(Infinity));
-
     countryDim = facts.dimension(function(d) {
         return d.Country;
     })
@@ -181,6 +182,8 @@ function ready(error, data) {
     religionDim = facts.dimension(function(d) {
         return d.religion;
     })
+
+    console.log(movieDim.top(Infinity));
 
     //--------- Groups and Charts --------------------------------------
 
@@ -231,7 +234,7 @@ function ready(error, data) {
 
     // World Map:
 
-    /*var map = L.map('worldMap');
+    var map = L.map('worldMap');
 
     map.setView([40, 10],1);
     mapLink = '<a href="http://openstreetmap.org">OpenStreetMap</a>';
@@ -239,7 +242,7 @@ function ready(error, data) {
         'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; ' + mapLink + ' Contributors',
             maxZoom: 15,
-        }).addTo(map);*/
+        }).addTo(map);
 
     //HeatMap
     /*var geoData = [];
@@ -257,7 +260,7 @@ function ready(error, data) {
 
     // Scatterplot:
 
-    var movieGrossReligionGroup = movieDim.group().reduce(function(n, d) {
+    movieGrossReligionGroup = movieDim.group().reduce(function(n, d) {
         if(n.coords.length == 2) {
             n.coords[0] += parseFloat(d.Total_Gross);
             // n.coords[1] += parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
@@ -275,27 +278,23 @@ function ready(error, data) {
         }
         return n;
     }, function(n, d) {
-        if(n.coords.length == 2) {
-            n.coords[0] -= parseFloat(d.Total_Gross);
-            //n.coords[1] -= parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100;
-            // n.coords[1] -= parseFloat(d.rel_total) * parseFloat(d.Total_Gross) / 100;
-            //uncomment bellow and comment above for test with religions:
-            n.coords[1] -= parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
+        if(n.coords == undefined) {
+            n.coords = [0,0];
         } else {
-            n.coords.remove(parseFloat(d.Total_Gross));
-            //n.coords.remove(parseFloat(d.chr_value) * parseFloat(d.Total_Gross) / 100);
-            // n.coords.remove(parseFloat(d.rel_total) * parseFloat(d.Total_Gross) / 100);
-            //uncomment bellow and comment above for test with religions:
-            n.coords.remove(parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100);
+            n.coords[0] += parseFloat(d.Total_Gross);
+            n.coords[1] += parseFloat(d.religion_value) * parseFloat(d.Total_Gross) / 100;
         }
+
         return n;
     }, function(){
         return {coords: []};
     });
 
-    console.log(totalCountryAmt);
+    // console.log(movieGrossReligionGroup.top(Infinity));
 
-    movieGrossReligionGroup.top(Infinity).forEach(function(d) {
+    // console.log(totalCountryAmt);
+
+    movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
         var coords = d.value.coords;
 
         //uncomment bellow for test with religions:
@@ -304,13 +303,32 @@ function ready(error, data) {
 
         d.value = d.key;
         d.key = coords;
+
+        // if(i === group.length - 1) {
+        //     console.log(movieGrossReligionGroup.top(Infinity));
+        // }
     });
 
-    // movieGrossReligionGroup.order(function(d) {return d.Title}).top(Infinity).forEach(function(d) {
+    // // movieGrossReligionGroup.order(function(d) {return d.Title}).top(Infinity).forEach(function(d) {
         
-    //});
+    // //});
 
-    console.log(movieGrossReligionGroup.top(Infinity));
+    // function toScatter(g, callback) {
+    //     g.top(Infinity).forEach(function(d, i, group) {
+    //         var coords = d.value.coords;
+
+    //         //uncomment bellow for test with religions:
+    //         coords[0] = parseFloat(coords[0]/religion_amt).toFixed(2);
+    //         coords[1] = parseFloat(coords[1]).toFixed(2);
+
+    //         d.value = d.key;
+    //         d.key = coords;
+
+    //         if(i == group.length - 1) {
+    //             callback();
+    //         }
+    //     });
+    // }
 
     chartGrossReligion
         .width(768)
@@ -322,14 +340,59 @@ function ready(error, data) {
         //.clipPadding(10)
         //.yAxisLabel("This is the Y Axis!")
         .dimension(movieDim)
-        .group(movieGrossReligionGroup)
-        //.data(function(group) {return group.order(function(d) {return d.Total_Gross;}).top(Infinity);})
-        //.keyAccessor(function(d) {return d.value.coords;})
-        //.valueAccessor(function(d) {return d.key;})
+        .group(movieGrossReligionGroup);
 
     dc.renderAll();
 }
 
+$(document).ready(function() {
+    $("#butt").click(function() {
+        //console.log(movieGrossReligionGroup.top(Infinity));
+
+        function f1(callback) {
+            movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
+                var coords = d.key;
+
+                d.key = d.value;
+                d.value = coords;
+
+                if(i === group.length - 1) {
+                    religionDim.filter(function(d) { return d != 'chr' });
+                    callback();
+                }
+            });
+        }
+
+        f1(function() {
+            movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
+                var coords = d.value.coords;
+
+                //uncomment bellow for test with religions:
+                //coords[0] = parseFloat(coords[0]/religion_amt).toFixed(2);
+                coords[0] = parseFloat(coords[0]).toFixed(2);
+                coords[1] = parseFloat(coords[1]).toFixed(2);
+
+                d.value = d.key;
+                d.key = coords;
+
+                if(i === group.length - 1) {
+                    dc.redrawAll();
+                }
+            });
+        });
+
+        //console.log(movieGrossReligionGroup.top(Infinity));
+
+        //religionDim.filter(function(d) { return d == 'chr' });
+        //console.log(movieGrossReligionGroup.top(Infinity));
+        // dc.redrawAll()
+        
+    })
+})
+// religionDim.filter(function(d) { return d == 'chr' }); dc.redrawAll()
+
 </script>
+
+<button id="butt">aplica filtro</button>
 </body>
 </html>
