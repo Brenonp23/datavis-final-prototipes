@@ -30,6 +30,12 @@
             display: none; 
         }
 
+        .center {
+            position: absolute;
+            left: 49%;
+            transform: translate(-50%, 0);
+        }
+
         .right {
             width: 45%;
             position: absolute;
@@ -47,6 +53,15 @@
             transform: scale(-1,1);
         }
 
+        ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            font-size: 12px;
+            padding-top: 14px;
+            text-align: center;
+        }
+
     </style>
 </head>
 <body>
@@ -60,7 +75,20 @@
 <div id="religionsChart" class="chart"></div>
 
 <div id="grossChart" class="chart left"></div>
-
+<div id="names" class="chart center">
+    <ul>
+        <li class="li_country"></li>
+        <li class="li_country"></li>
+        <li class="li_country"></li>
+        <li class="li_country"></li>
+        <li class="li_country"></li>
+        <li class="li_country"></li>
+        <li class="li_country"></li>
+        <li class="li_country"></li>
+        <li class="li_country"></li>
+        <li class="li_country"></li>
+    </ul>
+</div>
 <div id="hdiChart" class="chart right"></div>
 
 <script type="text/javascript">
@@ -199,9 +227,17 @@ function ready(error, data) {
         .dimension(countryDim)
         .group(countryHdiGrossGroup)
         .data(function(group) {
-            var top_10 = group.order(function(d) {return d.Total_Gross;}).top(10);
-            countryAmt = top_10.length;
-            return top_10;
+            var top_countries = group.order(function(d) {return d.Total_Gross;}).top(10);
+            countryAmt = top_countries.length;
+
+            var country_names = document.getElementsByClassName("li_country");
+
+            for (i=0;i<countryAmt; i++) {                 
+                country_names[i].innerHTML = top_countries[i].key;             
+            }             
+            console.log(country_names);
+
+            return top_countries;
         })
         .valueAccessor(function(d) {return d.value.Total_Gross})
         .height(countryAmt * 20)
@@ -377,75 +413,6 @@ function ready(error, data) {
 
     dc.renderAll();
 }
-
-//-------------------- ready ends here -----------------------------------------
-/*var click = false;
-
-$(document).ready(function() {
-    $("#butt").click(function() {
-
-        var filtered_amt;
-
-        function f1(callback) {
-            movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
-                var coords = d.key;
-
-                d.key = d.value;
-                d.value = coords;
-
-                if(i === group.length - 1) {
-                    if(!click) {
-                        console.log("oi");
-                        religionDim.filter(function(d) {return d=='chr'});
-                    } else {
-                        console.log("ola");
-                        religionDim.filter(function(d) {return d!='chr'});
-                    }
-
-                    click=!click;
-
-                    callback();
-                }
-            });
-        }
-
-        f1(function() {
-            movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
-                var coords = d.value.coords;
-
-                var slice_off_total = (religion_amt - (religion_amt / (max_entries / all.value())));
-
-                console.log(slice_off_total);
-
-                coords[0] = parseFloat(coords[0] / slice_off_total).toFixed(2);
-                coords[1] = parseFloat(coords[1]).toFixed(2);
-
-                coords[0] = coords[0] < 0 ? -1 * coords[0] : coords[0];
-                coords[1] = coords[1] < 0 ? -1 * coords[1] : coords[1];
-
-                if(d.filtered_coords != undefined) {
-                    coords[0] = (parseFloat(coords[0]) + parseFloat(d.filtered_coords[0])) / religion_amt - slice_off_total;
-                    coords[1] = (parseFloat(coords[1]) + parseFloat(d.filtered_coords[1]));
-                }
-
-                d.filtered_coords = coords;
-
-                d.value = d.key;
-                d.key = coords;
-
-                if(i === group.length - 1) {
-                    //console.log((1 - filtered_amt / max_entries))
-                    console.log(max_entries);
-                    console.log(all.value());
-                    console.log(movieGrossReligionGroup.top(Infinity));
-
-                    dc.redrawAll();
-                }
-            });
-        });        
-    })
-    
-})*/
 
 </script>
 </body>
