@@ -52,7 +52,7 @@
 <body>
 <h1>Two sided horiztontal bar chart</h1>
 
-<div id="worldMap" class="chart" style="height: 350px; width: 500px"></div>
+<div id="worldMap" class="chart" style="height: 500px; width: 850px;"></div>
 
 <div id="grossReligionChart" class="chart"></div>
 <button id="butt">aplica filtro</button>
@@ -66,11 +66,13 @@
 <script type="text/javascript">
 var dataByCountry = d3.map();
 var grossByCountry = d3.map();
+var locByCountry = d3.map();
 
 var facts;
 
 var movieDim;
 var countryDim;
+var countriesFG;
 var religionDim;
 
 var all;
@@ -93,6 +95,8 @@ var chartGrossReligion = dc.scatterPlot("#grossReligionChart");
 
 var movieGrossReligionGroup;
 
+var countryHdiGrossGroup;
+
 queue()
     // .defer(d3.tsv, "data/2016_general.csv")
     
@@ -110,6 +114,9 @@ queue()
                                                    population: +d.Population
                                                }
                                               );})
+    .defer(d3.tsv, "data/countries.tsv", function(d) {
+        locByCountry.set(d.name, {lat: d.lat, long: d.long})
+    })
     .await(ready);
 
 function ready(error, data) {
@@ -170,7 +177,7 @@ function ready(error, data) {
     var totalCountryAmt = countryDim.group().reduceCount().top(Infinity).length;
     var countryAmt;
 
-    var countryHdiGrossGroup = countryDim.group().reduce(function(n, d) {
+    countryHdiGrossGroup = countryDim.group().reduce(function(n, d) {
         n.Total_Gross += parseFloat(d.Total_Gross);
         n.hdi += parseFloat(d.hdi);
         return n;
@@ -212,6 +219,7 @@ function ready(error, data) {
     // World Map:
 
     var map = L.map('worldMap');
+    countriesFG = new L.FeatureGroup();
 
     map.setView([40, 10],1);
     mapLink = '<a href="http://openstreetmap.org">OpenStreetMap</a>';
@@ -221,16 +229,23 @@ function ready(error, data) {
             maxZoom: 15,
         }).addTo(map);
 
-    //HeatMap
-    /*var geoData = [];
-    _.each(allDim.top(Infinity), function (d) {
-        geoData.push([d["latitude"], d["longitude"], 1]);
+    chartGrossReligion.on('renderlet', function (data) {
+        countriesFG.clearLayers();
+        console.log(data)
+        countryDim.top(Infinity).forEach(function (d,i,grou) {
+            var loc = locByCountry.get(d.Country);
+            if (loc == undefined)
+                console.log(d.Country)
+            var name = d.Country;
+            var marker = L.marker([loc.lat, loc.long]);
+            marker.bindPopup("<p>" + name + "</p>");
+            countriesFG.addLayer(marker);
+        });
+        map.addLayer(countriesFG);
+        map.fitBounds(countriesFG.getBounds());
     });
-    var heat = L.heatLayer(geoData,{
-        radius: 10,
-        blur: 20, 
-        maxZoom: 1,
-    }).addTo(map);*/
+
+    console.log(countryDim.top(Infinity))
 
     // Piechart:
 
@@ -383,6 +398,7 @@ $(document).ready(function() {
                     callback();
                 }
             });
+            console.log(countryDim.top(Infinity))
         }
 
         f1(function() {
@@ -407,11 +423,13 @@ $(document).ready(function() {
                     console.log(max_entries);
                     console.log(all.value());
                     console.log(movieGrossReligionGroup.top(Infinity));
+
                     dc.redrawAll();
                 }
             });
         });        
     })
+    
 })
 
 </script>
