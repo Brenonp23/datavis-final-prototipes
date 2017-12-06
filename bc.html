@@ -9,6 +9,7 @@
     <script src="js/dc.js" charset="utf-8"></script>
     <script src="https://d3js.org/queue.v1.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chosen/1.8.2/chosen.jquery.js"></script>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"
    integrity="sha512-M2wvCLH6DSRazYeZRIm1JnYyh22purTM+FDB5CsyxtQJYeKq83arPe5wgbNmcFXGqiSH2XR8dT/fJISVA1r/zQ=="
@@ -67,10 +68,13 @@
 <body>
 <h1>Two sided horiztontal bar chart</h1>
 
-<!-- <div id="worldMap" class="chart" style="height: 500px; width: 850px;"></div> -->
+<div id="worldMap" class="chart" style="height: 500px; width: 850px;"></div>
+
+
 
 <div id="grossReligionChart" class="chart"></div>
 <!-- <button id="butt">aplica filtro</button> -->
+
 
 <div id="religionsChart" class="chart"></div>
 
@@ -107,6 +111,11 @@ var all;
 var treated_data = [];
 var religion_amt = 8;
 var max_entries;
+var movies = []
+var fillList;
+var updateCrossfilter
+
+
 
 //Create a quantize color scale here
 // Consider that the unemployment rate goes from 0 to 15% (.15)
@@ -196,11 +205,14 @@ function ready(error, data) {
         return d.religion;
     })
 
-    // console.log(movieDim.top(Infinity));
 
-    //--------- Groups and Charts --------------------------------------
-
-    // Rowchart: 
+    movieGroup = window.movieDim.group().reduceCount(function(d) {
+       return d.Title;
+    });
+    
+    movieGroup.top(Infinity).forEach(function(d) {
+       movies.push(d.key); 
+    }); 
 
     var countryHdiMax = countryDim.group().reduceCount().top(1)[0].value;
     var totalCountryAmt = countryDim.group().reduceCount().top(Infinity).length;
@@ -256,7 +268,7 @@ function ready(error, data) {
 
     // World Map:
 
-    /*var map = L.map('worldMap');
+    var map = L.map('worldMap');
     countriesFG = new L.FeatureGroup();
 
     map.setView([40, 10],1);
@@ -267,7 +279,7 @@ function ready(error, data) {
             maxZoom: 15,
         }).addTo(map);
 
-    chartGrossReligion.on('renderlet', function (data) {
+    /*chartGrossReligion.on('renderlet', function (data) {
         countriesFG.clearLayers();
         // console.log(data)
         countryDim.top(Infinity).forEach(function (d,i,grou) {
@@ -396,49 +408,50 @@ function ready(error, data) {
             });
         }
 
-        pre_filter(function() {
+    pre_filter(function() {
             movieGrossReligionGroup.top(Infinity).forEach(function(d, i, group) {
                 var coords = d.value.coords;
-
+ 
                 var slice_off_total = (religion_amt - (religion_amt / (max_entries / all.value())));
-var click = false;
-
-$(document).ready(function() {
-    $("#butt").click(function() {
-
-        var filtered_amt;
+ 
                 console.log(slice_off_total);
-
+ 
                 coords[0] = parseFloat(coords[0] / slice_off_total).toFixed(2);
                 coords[1] = parseFloat(coords[1]).toFixed(2);
-
+ 
                 coords[0] = coords[0] < 0 ? -1 * coords[0] : coords[0];
                 coords[1] = coords[1] < 0 ? -1 * coords[1] : coords[1];
-
+ 
                 if(d.filtered_coords != undefined) {
                     coords[0] = (parseFloat(coords[0]) + parseFloat(d.filtered_coords[0])) / religion_amt - slice_off_total;
                     coords[1] = (parseFloat(coords[1]) + parseFloat(d.filtered_coords[1]));
                 }
-
+ 
                 d.filtered_coords = coords;
-
+ 
                 d.value = d.key;
                 d.key = coords;
-
+ 
                 if(i === group.length - 1) {
                     //console.log((1 - filtered_amt / max_entries))
                     console.log(max_entries);
                     console.log(all.value());
                     console.log(movieGrossReligionGroup.top(Infinity));
+ 
                     dc.redrawAll();
                 }
             });
         });        
-<<<<<<< Updated upstream
     });
-
+ 
     dc.renderAll();
 }
+
+
 </script>
+<!-- <div id="movies_list_div">
+    <select class="chzn-select movies_sel" multiple="true" style="width: 100%;" onchange="updateCrossfilter()">
+    </select>
+</div> -->
 </body>
 </html>
