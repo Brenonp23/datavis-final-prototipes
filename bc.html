@@ -143,7 +143,8 @@ queue()
                                                }
                                               );})
     .defer(d3.tsv, "data/countries.tsv", function(d) {
-        locByCountry.set(d.name, {lat: d.lat, long: d.long})
+        if (dataByCountry.has(d.name))
+            locByCountry.set(d.name, {lat: d.lat, long: d.long})
     })
     .await(ready);
 
@@ -195,7 +196,7 @@ function ready(error, data) {
         return d.religion;
     })
 
-    console.log(movieDim.top(Infinity));
+    // console.log(movieDim.top(Infinity));
 
     //--------- Groups and Charts --------------------------------------
 
@@ -252,6 +253,7 @@ function ready(error, data) {
         .gap(10);
 
 
+
     // World Map:
 
     /*var map = L.map('worldMap');
@@ -267,21 +269,40 @@ function ready(error, data) {
 
     chartGrossReligion.on('renderlet', function (data) {
         countriesFG.clearLayers();
-        console.log(data)
+        // console.log(data)
         countryDim.top(Infinity).forEach(function (d,i,grou) {
             var loc = locByCountry.get(d.Country);
-            if (loc == undefined)
-                console.log(d.Country)
             var name = d.Country;
-            var marker = L.marker([loc.lat, loc.long]);
-            marker.bindPopup("<p>" + name + "</p>");
-            countriesFG.addLayer(marker);
+            var marker = L.marker([loc.lat, loc.long]).addTo(map);
         });
-        map.addLayer(countriesFG);
-        map.fitBounds(countriesFG.getBounds());
     });
-
     console.log(countryDim.top(Infinity))*/
+
+    var getColor = function(gross) {
+        console.log(gross)
+        return gross > 9   ? '#BD0026' :
+               gross > 8   ? '#E31A1C' :
+               gross > 7   ? '#FC4E2A' :
+               gross > 6   ? '#FD8D3C' :
+               gross > 5   ? '#FEB24C' :
+               gross > 4   ? '#FED976' :
+                             '#FFEDA0';
+    }
+
+    locByCountry.forEach(function(d) {
+        // console.log(parseFloat(dataByCountry.get(d).hdi)*10)
+        var circle = L.circle([locByCountry.get(d).lat, locByCountry.get(d).long], {radius: parseFloat(dataByCountry.get(d).hdi)*150000}, {
+              // color: getColor(parseFloat(dataByCountry.get(d).hdi)*10),
+              weight: 1,
+              fillColor: getColor(parseFloat(dataByCountry.get(d).hdi)*10),
+              fillOpacity: 0.5
+              }).addTo(map);
+        circle.bindPopup("Country: " + d + "<br>HDI: " + dataByCountry.get(d).hdi);
+    })
+
+    // console.log(countryDim.top(Infinity))
+
+    // Piechart:
 
     // Scatterplot:
 
@@ -380,7 +401,12 @@ function ready(error, data) {
                 var coords = d.value.coords;
 
                 var slice_off_total = (religion_amt - (religion_amt / (max_entries / all.value())));
+var click = false;
 
+$(document).ready(function() {
+    $("#butt").click(function() {
+
+        var filtered_amt;
                 console.log(slice_off_total);
 
                 coords[0] = parseFloat(coords[0] / slice_off_total).toFixed(2);
@@ -404,16 +430,15 @@ function ready(error, data) {
                     console.log(max_entries);
                     console.log(all.value());
                     console.log(movieGrossReligionGroup.top(Infinity));
-
                     dc.redrawAll();
                 }
             });
         });        
+<<<<<<< Updated upstream
     });
 
     dc.renderAll();
 }
-
 </script>
 </body>
 </html>
